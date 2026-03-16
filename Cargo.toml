@@ -4,3 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1"
+dirs = "6"
+minifb = "0.27"
+nokhwa = { version = "0.10", features = ["input-native"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"

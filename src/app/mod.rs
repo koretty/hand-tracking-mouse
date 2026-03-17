@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use std::path::Path;
 use std::io::{self, Write};
 
 mod fps;
@@ -6,12 +7,29 @@ use fps::FpsCounter;
 
 use crate::camera::{CameraDevice, CameraSession, list_cameras};
 use crate::config::{AppConfig, ConfigStore};
+use crate::inference::HandLandmarkSession;
 use crate::pipeline::{FrameProcessor, NoopProcessor};
 use crate::ui::{PreviewWindow, choose_camera};
 
 pub fn run() -> Result<()> {
     let mut config_store = ConfigStore::new("HandTrackingMouse")?;
     let mut config = config_store.load()?;
+
+    // MVPでは起動時に1回だけ推論を回してモデルロードとI/Oを検証する。
+    let model_path = Path::new("models/hand_landmark.onnx");
+    if model_path.exists() {
+        let mut onnx_session = HandLandmarkSession::from_model_file(model_path)
+            .context("ONNXモデルセッションの作成に失敗しました")?;
+        let landmarks = onnx_session
+            .run_dummy((1, 3, 256, 256))
+            .context("ONNX推論(ダミー入力)に失敗しました")?;
+        println!("ONNX warm-up完了: {} landmarks", landmarks.len());
+    } else {
+        println!(
+            "ONNXモデルが未配置のため推論をスキップしました: {}",
+            model_path.display()
+        );
+    }
 
     let cameras = list_cameras().context("利用可能なカメラの列挙に失敗しました")?;
     if cameras.is_empty() {

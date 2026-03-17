@@ -3,8 +3,8 @@ use minifb::{Key, Window, WindowOptions};
 
 use crate::pipeline::Frame;
 
-const PREVIEW_WIDTH: usize = 640;
-const PREVIEW_HEIGHT: usize = 480;
+const PREVIEW_WIDTH: usize = 256;
+const PREVIEW_HEIGHT: usize = 256;
 
 pub struct PreviewWindow {
     title: String,

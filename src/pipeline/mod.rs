@@ -1,4 +1,8 @@
+mod hand_tracking;
+
 use anyhow::Result;
+
+pub use hand_tracking::HandTrackingProcessor;
 
 #[derive(Clone, Debug)]
 pub struct Frame {

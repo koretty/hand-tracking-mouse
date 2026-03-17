@@ -7,29 +7,22 @@ use fps::FpsCounter;
 
 use crate::camera::{CameraDevice, CameraSession, list_cameras};
 use crate::config::{AppConfig, ConfigStore};
-use crate::inference::HandLandmarkSession;
-use crate::pipeline::{FrameProcessor, NoopProcessor};
+use crate::pipeline::{FrameProcessor, HandTrackingProcessor, NoopProcessor};
 use crate::ui::{PreviewWindow, choose_camera};
 
 pub fn run() -> Result<()> {
     let mut config_store = ConfigStore::new("HandTrackingMouse")?;
     let mut config = config_store.load()?;
 
-    // MVPでは起動時に1回だけ推論を回してモデルロードとI/Oを検証する。
-    let model_path = Path::new("models/hand_landmark.onnx");
-    if model_path.exists() {
-        let mut onnx_session = HandLandmarkSession::from_model_file(model_path)
-            .context("ONNXモデルセッションの作成に失敗しました")?;
-        let landmarks = onnx_session
-            .run_dummy((1, 3, 256, 256))
-            .context("ONNX推論(ダミー入力)に失敗しました")?;
-        println!("ONNX warm-up完了: {} landmarks", landmarks.len());
-    } else {
-        println!(
-            "ONNXモデルが未配置のため推論をスキップしました: {}",
-            model_path.display()
-        );
-    }
+    let model_candidates = [
+        Path::new("models/HandLandmarkDetector.onnx"),
+        Path::new("src/models/HandLandmarkDetector.onnx"),
+    ];
+    let model_path = model_candidates
+        .iter()
+        .find(|p| p.exists())
+        .copied()
+        .unwrap_or(Path::new("models/HandLandmarkDetector.onnx"));
 
     let cameras = list_cameras().context("利用可能なカメラの列挙に失敗しました")?;
     if cameras.is_empty() {
@@ -42,7 +35,19 @@ pub fn run() -> Result<()> {
     let mut session = CameraSession::open(selected_camera)
         .context("選択したカメラを開けませんでした")?;
 
-    let mut processor = NoopProcessor;
+    let mut processor: Box<dyn FrameProcessor> = if model_path.exists() {
+        println!("ONNXモデルを読み込みます: {}", model_path.display());
+        Box::new(
+            HandTrackingProcessor::new(model_path)
+                .context("HandTrackingProcessorの初期化に失敗しました")?,
+        )
+    } else {
+        println!(
+            "ONNXモデルが未配置のため推論をスキップしました: {}",
+            model_path.display()
+        );
+        Box::new(NoopProcessor)
+    };
     let mut preview = PreviewWindow::new("HandTrackingMouse - Camera Preview");
     let mut fps = FpsCounter::new();
 

@@ -2,15 +2,10 @@ use anyhow::{Context, Result};
 use minifb::{Key, Window, WindowOptions};
 
 use crate::pipeline::Frame;
+use crate::ui::types::PreviewWindow;
 
 const PREVIEW_WIDTH: usize = 256;
 const PREVIEW_HEIGHT: usize = 256;
-
-pub struct PreviewWindow {
-    title: String,
-    window: Option<Window>,
-    pixels: Vec<u32>,
-}
 
 impl PreviewWindow {
     pub fn new(title: &str) -> Self {
@@ -69,4 +64,34 @@ fn rgb_to_u32_resized(frame: &Frame, target_width: usize, target_height: usize) 
     }
 
     Ok(out)
+}
+
+pub fn choose_camera(cameras: &[crate::camera::CameraDevice]) -> Result<crate::camera::CameraDevice> {
+    use std::io::{self, Write};
+
+    println!("利用可能なカメラ一覧:");
+    for (i, camera) in cameras.iter().enumerate() {
+        println!("  [{}] {}", i + 1, camera.display_name);
+    }
+
+    loop {
+        print!("使用するカメラ番号を入力してください: ");
+        io::stdout().flush().context("標準出力のフラッシュに失敗しました")?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).context("入力の読み取りに失敗しました")?;
+
+        let trimmed = input.trim();
+        let Ok(num) = trimmed.parse::<usize>() else {
+            println!("数値を入力してください。\n");
+            continue;
+        };
+
+        if num == 0 || num > cameras.len() {
+            println!("範囲外です。1-{} の番号を入力してください。\n", cameras.len());
+            continue;
+        }
+
+        return Ok(cameras[num - 1].clone());
+    }
 }

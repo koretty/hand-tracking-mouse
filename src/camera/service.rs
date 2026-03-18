@@ -1,11 +1,11 @@
 use anyhow::{Context, Result};
 use nokhwa::{Camera, pixel_format::RgbFormat, utils::{RequestedFormat, RequestedFormatType}};
 
-use super::CameraDevice;
+use crate::camera::types::CameraDevice;
 use crate::pipeline::Frame;
 
 pub struct CameraSession {
-    camera: Camera
+    camera: Camera,
 }
 
 impl CameraSession {
@@ -23,7 +23,7 @@ impl CameraSession {
         Ok(Frame {
             width: image.width() as usize,
             height: image.height() as usize,
-            data: image.into_raw()
+            data: image.into_raw(),
         })
     }
 }

@@ -1,10 +1,8 @@
-use std::path::Path;
-
 use anyhow::Result;
 
 use crate::inference::{HandLandmarkSession, LANDMARK_COUNT, Landmark3D, MODEL_INPUT_HEIGHT, MODEL_INPUT_WIDTH};
 
-use super::{Frame, FrameProcessor};
+use super::types::{Frame, FrameProcessor};
 
 const HAND_CONNECTIONS: [(usize, usize); 21] = [
     (0, 1),
@@ -37,13 +35,21 @@ pub struct HandTrackingProcessor {
 }
 
 impl HandTrackingProcessor {
-    pub fn new(model_path: &Path) -> Result<Self> {
+    pub fn new(model_path: &std::path::Path) -> Result<Self> {
         let session = HandLandmarkSession::from_model_file(model_path)?;
         Ok(Self {
             session,
             error_count: 0,
             frame_count: 0,
         })
+    }
+}
+
+pub struct NoopProcessor;
+
+impl FrameProcessor for NoopProcessor {
+    fn process(&mut self, frame: Frame) -> Result<Frame> {
+        Ok(frame)
     }
 }
 

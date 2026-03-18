@@ -1,5 +1,5 @@
 pub mod types;
-mod store;
+mod service;
 
 pub use types::AppConfig;
-pub use store::ConfigStore;
+pub use service::ConfigStore;

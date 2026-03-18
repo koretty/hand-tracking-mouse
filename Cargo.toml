@@ -8,5 +8,6 @@ anyhow = "1"
 dirs = "6"
 minifb = "0.27"
 nokhwa = { version = "0.10", features = ["input-native"] }
+ort = { version = "=2.0.0-rc.10", features = [ "ndarray", "download-binaries"] }
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"

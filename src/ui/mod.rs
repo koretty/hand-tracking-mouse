@@ -1,5 +1,5 @@
-mod chooser;
-mod preview;
+mod types;
+mod service;
 
-pub use chooser::choose_camera;
-pub use preview::PreviewWindow;
+pub use service::choose_camera;
+pub use types::PreviewWindow;

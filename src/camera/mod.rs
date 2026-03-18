@@ -1,5 +1,5 @@
-mod discovery;
-mod session;
+pub mod types;
+mod service;
 
-pub use discovery::{CameraDevice, list_cameras};
-pub use session::CameraSession;
+pub use types::{CameraDevice, list_cameras};
+pub use service::CameraSession;

@@ -1,24 +1,6 @@
-mod hand_tracking;
+pub mod types;
+mod service;
 
-use anyhow::Result;
-
-pub use hand_tracking::HandTrackingProcessor;
-
-#[derive(Clone, Debug)]
-pub struct Frame {
-    pub width: usize,
-    pub height: usize,
-    pub data: Vec<u8>,
-}
-
-pub trait FrameProcessor {
-    fn process(&mut self, frame: Frame) -> Result<Frame>;
-}
-
-pub struct NoopProcessor;
-
-impl FrameProcessor for NoopProcessor {
-    fn process(&mut self, frame: Frame) -> Result<Frame> {
-        Ok(frame)
-    }
-}
+pub use service::HandTrackingProcessor;
+pub use types::{Frame, FrameProcessor};
+pub use service::NoopProcessor;

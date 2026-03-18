@@ -1,9 +1,10 @@
 use std::time::Instant;
+
 #[derive(Clone, Debug)]
 pub struct FpsCounter {
-    report_started: Instant,
-    frame_count: u32,
-    current_fps: f64
+    pub report_started: Instant,
+    pub frame_count: u32,
+    pub current_fps: f64,
 }
 
 impl FpsCounter {
@@ -11,7 +12,7 @@ impl FpsCounter {
         Self {
             report_started: Instant::now(),
             frame_count: 0,
-            current_fps: 0.0
+            current_fps: 0.0,
         }
     }
 

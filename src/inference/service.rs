@@ -1,13 +1,14 @@
 use std::path::Path;
 use anyhow::{Context, Result};
-use ort::{session::{Session, builder::GraphOptimizationLevel}, value::Value,};
+use ort::{session::{Session, builder::GraphOptimizationLevel}, value::Value};
+
 use crate::pipeline::Frame;
 use crate::inference::types::{MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT, LANDMARK_COUNT, Landmark3D};
 use crate::inference::utils::{fill_nchw_rgb_f32, parse_landmarks_from_raw, parse_landmarks_xyz_iter};
 
 pub struct HandLandmarkSession {
     session: Session,
-    logged_output_info: bool
+    logged_output_info: bool,
 }
 
 impl HandLandmarkSession {

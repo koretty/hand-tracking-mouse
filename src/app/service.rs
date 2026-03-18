@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use std::path::Path;
 use std::io::{self, Write};
 
-use crate::app::fps::FpsCounter;
+use crate::app::types::FpsCounter;
 use crate::camera::{CameraDevice, CameraSession, list_cameras};
 use crate::config::{AppConfig, ConfigStore};
 use crate::pipeline::{FrameProcessor, HandTrackingProcessor, NoopProcessor};

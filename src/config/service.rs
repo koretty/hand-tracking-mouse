@@ -5,7 +5,7 @@ use crate::config::AppConfig;
 
 #[derive(Debug, Clone)]
 pub struct ConfigStore {
-    path: PathBuf
+    path: PathBuf,
 }
 
 impl ConfigStore {

@@ -3,8 +3,8 @@ use anyhow::{Context, Result};
 use ort::{session::{Session, builder::GraphOptimizationLevel}, value::Value};
 
 use crate::pipeline::Frame;
-use crate::inference::types::{MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT, LANDMARK_COUNT, Landmark3D};
-use crate::inference::utils::{fill_nchw_rgb_f32, parse_landmarks_from_raw, parse_landmarks_xyz_iter};
+use crate::inference::types::{MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT, LANDMARK_COUNT, Landmark3D, RoiRect};
+use crate::inference::utils::{fill_nchw_rgb_f32, fill_nchw_rgb_f32_bilinear_with_roi, parse_landmarks_from_raw};
 
 pub struct HandLandmarkSession {
     session: Session,
@@ -32,12 +32,23 @@ impl HandLandmarkSession {
         })
     }
 
+    #[allow(dead_code)]
     pub fn run_on_frame(&mut self, frame: &Frame) -> Result<Vec<Landmark3D>> {
+        self.run_on_frame_with_roi(frame, None)
+    }
+
+    pub fn run_on_frame_with_roi(&mut self, frame: &Frame, roi: Option<RoiRect>) -> Result<Vec<Landmark3D>> {
         if frame.width == 0 || frame.height == 0 {
             anyhow::bail!("フレームサイズが不正です: {}x{}", frame.width, frame.height);
         }
 
-        let input_data = fill_nchw_rgb_f32(frame, MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT).context("入力データの準備に失敗しました")?;
+        let input_data = if roi.is_some() {
+            fill_nchw_rgb_f32_bilinear_with_roi(frame, MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT, roi)
+                .context("ROI入力データの準備に失敗しました")?
+        } else {
+            fill_nchw_rgb_f32(frame, MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT)
+                .context("入力データの準備に失敗しました")?
+        };
 
         let input_value = Value::from_array((
             [1, 3, MODEL_INPUT_HEIGHT, MODEL_INPUT_WIDTH],

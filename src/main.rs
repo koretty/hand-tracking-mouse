@@ -1,6 +1,6 @@
 mod app;
 mod camera;
-mod config;
+mod preferences;
 mod inference;
 mod pipeline;
 mod ui;

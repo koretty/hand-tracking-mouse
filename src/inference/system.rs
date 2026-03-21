@@ -1,20 +1,26 @@
 use std::path::Path;
+
 use anyhow::{Context, Result};
-use ort::{session::{Session, builder::GraphOptimizationLevel}, value::Value};
+use ort::{
+    session::{builder::GraphOptimizationLevel, Session},
+    value::Value,
+};
 
 use crate::pipeline::Frame;
-use crate::inference::types::{MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT, LANDMARK_COUNT, Landmark3D, RoiRect};
-use crate::inference::utils::{fill_nchw_rgb_f32, fill_nchw_rgb_f32_bilinear_with_roi, parse_landmarks_from_raw};
 
-pub struct HandLandmarkSession {
-    session: Session,
-    logged_output_info: bool,
-}
+use super::config::{LANDMARK_COUNT, MODEL_INPUT_HEIGHT, MODEL_INPUT_WIDTH};
+use super::r#struct::{HandLandmarkSession, Landmark3D, RoiRect};
+use super::utils::{
+    fill_nchw_rgb_f32, fill_nchw_rgb_f32_bilinear_with_roi, parse_landmarks_from_raw,
+};
 
 impl HandLandmarkSession {
     pub fn from_model_file(model_path: &Path) -> Result<Self> {
         if !model_path.exists() {
-            return Err(anyhow::anyhow!("ONNXモデルが見つかりません: {}", model_path.display()));
+            return Err(anyhow::anyhow!(
+                "ONNXモデルが見つかりません: {}",
+                model_path.display()
+            ));
         }
 
         let session = Session::builder()
@@ -37,7 +43,11 @@ impl HandLandmarkSession {
         self.run_on_frame_with_roi(frame, None)
     }
 
-    pub fn run_on_frame_with_roi(&mut self, frame: &Frame, roi: Option<RoiRect>) -> Result<Vec<Landmark3D>> {
+    pub fn run_on_frame_with_roi(
+        &mut self,
+        frame: &Frame,
+        roi: Option<RoiRect>,
+    ) -> Result<Vec<Landmark3D>> {
         if frame.width == 0 || frame.height == 0 {
             anyhow::bail!("フレームサイズが不正です: {}x{}", frame.width, frame.height);
         }
@@ -50,13 +60,14 @@ impl HandLandmarkSession {
                 .context("入力データの準備に失敗しました")?
         };
 
-        let input_value = Value::from_array((
-            [1, 3, MODEL_INPUT_HEIGHT, MODEL_INPUT_WIDTH],
-            input_data,
-        ))
-        .context("入力テンソル作成に失敗しました")?;
+        let input_value =
+            Value::from_array(([1, 3, MODEL_INPUT_HEIGHT, MODEL_INPUT_WIDTH], input_data))
+                .context("入力テンソル作成に失敗しました")?;
 
-        let outputs = self.session.run(ort::inputs![input_value]).context("ONNX推論の実行に失敗しました")?;
+        let outputs = self
+            .session
+            .run(ort::inputs![input_value])
+            .context("ONNX推論の実行に失敗しました")?;
 
         if !self.logged_output_info {
             eprintln!("ONNX出力情報:");
@@ -80,9 +91,7 @@ impl HandLandmarkSession {
                 continue;
             }
 
-            let should_replace = best_raw
-                .as_ref()
-                .is_none_or(|current| raw.len() > current.len());
+            let should_replace = best_raw.as_ref().is_none_or(|current| raw.len() > current.len());
             if should_replace {
                 best_raw = Some(raw);
             }

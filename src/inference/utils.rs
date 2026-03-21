@@ -1,6 +1,6 @@
 use anyhow::Result;
 use crate::pipeline::Frame;
-use crate::inference::types::{Landmark3D, RoiRect};
+use crate::inference::r#struct::{Landmark3D, RoiRect};
 
 pub(crate) fn parse_landmarks_xyz_iter<I>(iter: I, max_points: usize) -> Vec<Landmark3D>
 where

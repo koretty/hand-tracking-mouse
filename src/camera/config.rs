@@ -1,0 +1,1 @@
+pub const DEFAULT_CAPTURE_MODE: &str = "AbsoluteHighestFrameRate";

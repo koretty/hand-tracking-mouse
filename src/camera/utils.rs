@@ -1,15 +1,9 @@
-use nokhwa::utils::CameraIndex;
+use anyhow::Context;
+use nokhwa::{query, utils::ApiBackend};
 
-#[derive(Clone, Debug)]
-pub struct CameraDevice {
-    pub display_name: String,
-    pub index: CameraIndex,
-}
+use super::r#struct::CameraDevice;
 
 pub fn list_cameras() -> anyhow::Result<Vec<CameraDevice>> {
-    use anyhow::Context;
-    use nokhwa::{query, utils::ApiBackend};
-
     let infos = query(ApiBackend::Auto).context("カメラ情報の取得に失敗しました")?;
 
     Ok(infos

@@ -1,6 +1,4 @@
-pub const MODEL_INPUT_WIDTH: usize = 256;
-pub const MODEL_INPUT_HEIGHT: usize = 256;
-pub const LANDMARK_COUNT: usize = 21;
+use ort::session::Session;
 
 #[derive(Debug, Clone, Copy)]
 pub struct RoiRect {
@@ -15,4 +13,9 @@ pub struct Landmark3D {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+}
+
+pub struct HandLandmarkSession {
+    pub(super) session: Session,
+    pub(super) logged_output_info: bool,
 }

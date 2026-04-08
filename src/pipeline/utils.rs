@@ -5,10 +5,11 @@ use crate::inference::{Landmark3D, RoiRect, LANDMARK_COUNT, MODEL_INPUT_HEIGHT, 
 
 use super::config::{
     BORDER_MARGIN_RATIO, CENTER_JUMP_MAX_DIST, CENTER_STUCK_MAX_DIST, CENTER_STUCK_RANGE_MAX,
-    CENTER_STUCK_RANGE_MIN, HAND_CONNECTIONS, MIN_VALID_SEGMENTS, PALM_WIDTH_MIN_DIAG_RATIO,
-    WRIST_TO_MIDDLE_MIN_DIAG_RATIO,
+    CENTER_STUCK_RANGE_MIN, HAND_CONNECTIONS, INDEX_MCP_LANDMARK, MIDDLE_MCP_LANDMARK,
+    MIDDLE_TIP_LANDMARK, MIN_VALID_SEGMENTS, PALM_WIDTH_MIN_DIAG_RATIO, PINKY_MCP_LANDMARK,
+    THUMB_TIP_LANDMARK, WRIST_LANDMARK, WRIST_TO_MIDDLE_MIN_DIAG_RATIO,
 };
-use super::r#struct::{Frame, WorkerState};
+use super::r#struct::{ClickGesture, Frame, WorkerState};
 
 pub fn remap_landmarks_to_full_frame(
     landmarks: &[Landmark3D],
@@ -152,8 +153,8 @@ pub(super) fn is_valid_hand_detection(
     }
 
     let frame_diag = ((frame_w * frame_w + frame_h * frame_h) as f32).sqrt().max(1.0);
-    let palm_width = point_distance(&points, 5, 17);
-    let wrist_to_middle = point_distance(&points, 0, 9);
+    let palm_width = point_distance(&points, INDEX_MCP_LANDMARK, PINKY_MCP_LANDMARK);
+    let wrist_to_middle = point_distance(&points, WRIST_LANDMARK, MIDDLE_MCP_LANDMARK);
 
     if palm_width < frame_diag * PALM_WIDTH_MIN_DIAG_RATIO
         || wrist_to_middle < frame_diag * WRIST_TO_MIDDLE_MIN_DIAG_RATIO
@@ -161,7 +162,11 @@ pub(super) fn is_valid_hand_detection(
         return false;
     }
 
-    let palm_area = triangle_area(points[0], points[5], points[17]);
+    let palm_area = triangle_area(
+        points[WRIST_LANDMARK],
+        points[INDEX_MCP_LANDMARK],
+        points[PINKY_MCP_LANDMARK],
+    );
     if palm_area < (frame_w * frame_h) as f32 * config.min_palm_area_ratio {
         return false;
     }
@@ -263,6 +268,84 @@ fn map_coord(v: f32, frame_size: f32, model_size: f32) -> f32 {
     v * (frame_size / model_size)
 }
 
+pub(super) fn detect_click_gesture(
+    landmarks: &[Landmark3D],
+    active_gesture: Option<ClickGesture>,
+    config: &PipelineConfig,
+) -> Option<ClickGesture> {
+    if landmarks.len() <= MIDDLE_TIP_LANDMARK {
+        return None;
+    }
+
+    let index_tip_landmark = config.index_finger_tip.min(landmarks.len().saturating_sub(1));
+    let Some(hand_scale) = estimate_hand_scale(landmarks) else {
+        return None;
+    };
+
+    let Some(thumb_index_dist) = landmark_distance(landmarks, THUMB_TIP_LANDMARK, index_tip_landmark) else {
+        return None;
+    };
+    let Some(thumb_middle_dist) = landmark_distance(landmarks, THUMB_TIP_LANDMARK, MIDDLE_TIP_LANDMARK) else {
+        return None;
+    };
+
+    let left_ratio = thumb_index_dist / hand_scale;
+    let right_ratio = thumb_middle_dist / hand_scale;
+    let press = config.click_pinch_press_ratio;
+    let release = config.click_pinch_release_ratio.max(press + 0.01);
+
+    let left_pressed = left_ratio <= press && right_ratio > release;
+    let right_pressed = right_ratio <= press && left_ratio > release;
+
+    match active_gesture {
+        Some(ClickGesture::Left) => {
+            if left_ratio <= release && right_ratio > press {
+                Some(ClickGesture::Left)
+            } else if right_pressed {
+                Some(ClickGesture::Right)
+            } else {
+                None
+            }
+        }
+        Some(ClickGesture::Right) => {
+            if right_ratio <= release && left_ratio > press {
+                Some(ClickGesture::Right)
+            } else if left_pressed {
+                Some(ClickGesture::Left)
+            } else {
+                None
+            }
+        }
+        None => {
+            if left_pressed {
+                Some(ClickGesture::Left)
+            } else if right_pressed {
+                Some(ClickGesture::Right)
+            } else {
+                None
+            }
+        }
+    }
+}
+
+fn estimate_hand_scale(landmarks: &[Landmark3D]) -> Option<f32> {
+    let palm_width = landmark_distance(landmarks, INDEX_MCP_LANDMARK, PINKY_MCP_LANDMARK)?;
+    let wrist_to_middle = landmark_distance(landmarks, WRIST_LANDMARK, MIDDLE_MCP_LANDMARK)?;
+    Some(palm_width.max(wrist_to_middle).max(0.0001))
+}
+
+fn landmark_distance(landmarks: &[Landmark3D], a: usize, b: usize) -> Option<f32> {
+    let a = landmarks.get(a)?;
+    let b = landmarks.get(b)?;
+    if !a.x.is_finite() || !a.y.is_finite() || !b.x.is_finite() || !b.y.is_finite() {
+        return None;
+    }
+
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    Some((dx * dx + dy * dy).sqrt())
+}
+
 pub fn draw_dot_rgb(frame: &mut Frame, center: (i32, i32), radius: i32, color: [u8; 3]) {
     let (cx, cy) = center;
     for dy in -radius..=radius {
@@ -321,6 +404,31 @@ fn set_pixel_rgb(frame: &mut Frame, x: i32, y: i32, color: [u8; 3]) {
     frame.data[idx] = color[0];
     frame.data[idx + 1] = color[1];
     frame.data[idx + 2] = color[2];
+}
+
+#[cfg(target_os = "windows")]
+pub(super) fn trigger_mouse_click(gesture: ClickGesture) -> Result<()> {
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+        mouse_event, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_RIGHTDOWN,
+        MOUSEEVENTF_RIGHTUP,
+    };
+
+    let (down, up) = match gesture {
+        ClickGesture::Left => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
+        ClickGesture::Right => (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
+    };
+
+    unsafe {
+        mouse_event(down, 0, 0, 0, 0);
+        mouse_event(up, 0, 0, 0, 0);
+    }
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(super) fn trigger_mouse_click(_gesture: ClickGesture) -> Result<()> {
+    Ok(())
 }
 
 #[cfg(target_os = "windows")]

@@ -17,6 +17,12 @@ pub trait FrameProcessor {
     fn process(&mut self, frame: Frame) -> Result<Frame>;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ClickGesture {
+    Left,
+    Right,
+}
+
 pub struct HandTrackingProcessor {
     pub(super) config: PipelineConfig,
     pub(super) frame_count: u64,
@@ -29,8 +35,10 @@ pub struct HandTrackingProcessor {
     pub(super) smoothed_cursor_norm: Option<(f32, f32)>,
     pub(super) cursor_target_norm: Option<(f32, f32)>,
     pub(super) cursor_current_norm: Option<(f32, f32)>,
+    pub(super) active_click_gesture: Option<ClickGesture>,
     pub(super) last_inference_request_at: Instant,
     pub(super) last_cursor_update_at: Instant,
+    pub(super) last_click_at: Instant,
 }
 
 #[derive(Clone)]

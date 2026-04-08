@@ -9,10 +9,12 @@ use crate::preferences::PipelineConfig;
 use crate::inference::HandLandmarkSession;
 
 use super::config::{sanitize_pipeline_config, MAX_INTERP_STEPS};
-use super::r#struct::{Frame, FrameProcessor, HandTrackingProcessor, WorkerResult, WorkerState};
+use super::r#struct::{
+    ClickGesture, Frame, FrameProcessor, HandTrackingProcessor, WorkerResult, WorkerState,
+};
 use super::utils::{
-    build_next_roi, draw_dot_rgb, draw_skeleton, is_valid_hand_detection, move_cursor_normalized,
-    remap_landmarks_to_full_frame, to_frame_point,
+    build_next_roi, detect_click_gesture, draw_dot_rgb, draw_skeleton, is_valid_hand_detection,
+    move_cursor_normalized, remap_landmarks_to_full_frame, to_frame_point, trigger_mouse_click,
 };
 
 impl HandTrackingProcessor {
@@ -24,6 +26,7 @@ impl HandTrackingProcessor {
         let (result_tx, result_rx) = mpsc::channel::<WorkerResult>();
         spawn_inference_worker(model_path.to_path_buf(), config.clone(), request_rx, result_tx);
         let last_inference_request_at = Instant::now() - Duration::from_secs_f32(1.0 / config.inference_hz);
+        let last_click_at = Instant::now() - Duration::from_millis(config.click_cooldown_ms as u64);
 
         Ok(Self {
             config,
@@ -37,8 +40,10 @@ impl HandTrackingProcessor {
             smoothed_cursor_norm: None,
             cursor_target_norm: None,
             cursor_current_norm: None,
+            active_click_gesture: None,
             last_inference_request_at,
             last_cursor_update_at: Instant::now(),
+            last_click_at,
         })
     }
 
@@ -48,6 +53,10 @@ impl HandTrackingProcessor {
 
     fn cursor_update_interval(&self) -> Duration {
         Duration::from_secs_f32(1.0 / self.config.cursor_update_hz)
+    }
+
+    fn click_cooldown_interval(&self) -> Duration {
+        Duration::from_millis(self.config.click_cooldown_ms as u64)
     }
 
     fn absorb_worker_results(&mut self) {
@@ -62,6 +71,7 @@ impl HandTrackingProcessor {
                 self.smoothed_landmarks = None;
                 self.smoothed_cursor_norm = None;
                 self.cursor_target_norm = None;
+                self.active_click_gesture = None;
                 continue;
             }
 
@@ -77,6 +87,7 @@ impl HandTrackingProcessor {
                     self.smoothed_landmarks = None;
                     self.smoothed_cursor_norm = None;
                     self.cursor_target_norm = None;
+                    self.active_click_gesture = None;
                 }
             }
         }
@@ -140,6 +151,32 @@ impl HandTrackingProcessor {
         }
     }
 
+    fn update_click_state(&mut self, landmarks: &[crate::inference::Landmark3D], now: Instant) {
+        let next_gesture = detect_click_gesture(landmarks, self.active_click_gesture, &self.config);
+
+        if let Some(gesture) = next_gesture {
+            let is_new_gesture = self.active_click_gesture != Some(gesture);
+            let cooled_down = now.duration_since(self.last_click_at) >= self.click_cooldown_interval();
+
+            if is_new_gesture && cooled_down {
+                if let Err(e) = trigger_mouse_click(gesture) {
+                    self.error_count = self.error_count.saturating_add(1);
+                    if self.error_count % 30 == 1 {
+                        let label = match gesture {
+                            ClickGesture::Left => "左クリック",
+                            ClickGesture::Right => "右クリック",
+                        };
+                        eprintln!("{label} に失敗しました: {e:#}");
+                    }
+                } else {
+                    self.last_click_at = now;
+                }
+            }
+        }
+
+        self.active_click_gesture = next_gesture;
+    }
+
     fn update_cursor_with_interpolation(&mut self, now: Instant) {
         let Some(target) = self.cursor_target_norm else {
             return;
@@ -190,6 +227,7 @@ impl FrameProcessor for HandTrackingProcessor {
         if self.detected_streak >= self.config.detection_warmup_frames {
             if let Some(lm) = self.last_valid_landmarks.clone() {
                 let stable = self.smooth_landmarks(&lm);
+                self.update_click_state(&stable, now);
                 if let Some(&tip) = stable.get(self.config.index_finger_tip) {
                     if let Some((ix, iy)) = to_frame_point(tip, frame.width, frame.height) {
                         let tx = ix as f32 / frame.width.max(1) as f32;
@@ -201,6 +239,8 @@ impl FrameProcessor for HandTrackingProcessor {
                 }
                 draw_skeleton(&mut frame, &stable);
             }
+        } else {
+            self.active_click_gesture = None;
         }
 
         self.update_cursor_with_interpolation(now);

@@ -19,6 +19,15 @@ pub fn default_cursor_smooth_alpha() -> f32 {
 pub fn default_cursor_interp_alpha() -> f32 {
     0.42
 }
+pub fn default_click_pinch_press_ratio() -> f32 {
+    0.38
+}
+pub fn default_click_pinch_release_ratio() -> f32 {
+    0.52
+}
+pub fn default_click_cooldown_ms() -> u32 {
+    260
+}
 pub fn default_index_finger_tip() -> usize {
     8
 }

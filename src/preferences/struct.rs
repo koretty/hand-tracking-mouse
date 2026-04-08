@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use super::config::{
+    default_click_cooldown_ms, default_click_pinch_press_ratio, default_click_pinch_release_ratio,
     default_cursor_interp_alpha, default_cursor_smooth_alpha, default_cursor_update_hz,
     default_detection_warmup_frames, default_index_finger_tip, default_inference_hz,
     default_landmark_smooth_alpha, default_lost_to_reset_roi, default_max_bbox_ratio,
@@ -33,6 +34,12 @@ pub struct PipelineConfig {
     pub cursor_smooth_alpha: f32,
     #[serde(default = "default_cursor_interp_alpha")]
     pub cursor_interp_alpha: f32,
+    #[serde(default = "default_click_pinch_press_ratio")]
+    pub click_pinch_press_ratio: f32,
+    #[serde(default = "default_click_pinch_release_ratio")]
+    pub click_pinch_release_ratio: f32,
+    #[serde(default = "default_click_cooldown_ms")]
+    pub click_cooldown_ms: u32,
     #[serde(default = "default_index_finger_tip")]
     pub index_finger_tip: usize,
     #[serde(default = "default_inference_hz")]
@@ -77,6 +84,9 @@ impl Default for PipelineConfig {
             landmark_smooth_alpha: default_landmark_smooth_alpha(),
             cursor_smooth_alpha: default_cursor_smooth_alpha(),
             cursor_interp_alpha: default_cursor_interp_alpha(),
+            click_pinch_press_ratio: default_click_pinch_press_ratio(),
+            click_pinch_release_ratio: default_click_pinch_release_ratio(),
+            click_cooldown_ms: default_click_cooldown_ms(),
             index_finger_tip: default_index_finger_tip(),
             inference_hz: default_inference_hz(),
             cursor_update_hz: default_cursor_update_hz(),

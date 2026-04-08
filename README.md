@@ -82,6 +82,14 @@ cargo run
 cargo run --release
 ```
 
+### Gesture Controls
+
+* カーソル移動: 人差し指先端の追従
+* 左クリック: 親指先端 + 人差し指先端のピンチ
+* 右クリック: 親指先端 + 中指先端のピンチ
+
+クリックは「押し込み判定 + 離脱判定 + クールダウン」でチャタリングを抑制しています。
+
 ### Configuration
 
 初回起動後、設定ファイルに選択カメラとモデルパスが保存されます。
@@ -89,6 +97,11 @@ cargo run --release
 ```toml
 preferred_camera_name = "Integrated Camera"
 model_path = "models/HandLandmarkDetector.onnx"
+
+[pipeline]
+click_pinch_press_ratio = 0.38
+click_pinch_release_ratio = 0.52
+click_cooldown_ms = 260
 ```
 
 ---
@@ -128,7 +141,7 @@ model_path = "models/HandLandmarkDetector.onnx"
 * [x] カメラ入力の取得とプレビュー表示
 * [x] ONNX手ランドマーク推論の統合
 * [x] ランドマーク骨格の重畳描画
-* [ ] ポインタ移動・クリック等のOSマウス制御
+* [x] ポインタ移動・クリック等のOSマウス制御
 * [ ] ジェスチャー認識の安定化としきい値調整
 * [ ] パフォーマンス計測と最適化（レイテンシ/FPS改善）
 * [ ] ユニットテスト・統合テストの追加

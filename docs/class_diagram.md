@@ -23,9 +23,18 @@ classDiagram
         +f32 landmark_smooth_alpha
         +f32 cursor_smooth_alpha
         +f32 cursor_interp_alpha
+        +f32 click_pinch_press_ratio
+        +f32 click_pinch_release_ratio
+        +u32 click_cooldown_ms
         +usize index_finger_tip
         +f32 inference_hz
         +f32 cursor_update_hz
+        +f32 min_bbox_ratio_track
+        +f32 min_bbox_ratio_scan
+        +f32 max_bbox_ratio
+        +f32 min_segment_ratio
+        +f32 max_segment_ratio
+        +f32 min_palm_area_ratio
     }
 
     class CameraDevice {
@@ -64,18 +73,25 @@ classDiagram
 
     class FrameProcessor {
         <<trait>>
-        +process(frame) Frame
+        +process(frame) Result~Frame~
     }
 
     class HandTrackingProcessor {
         +new(model_path, pipeline_config)
-        +process(frame) Frame
+        +process(frame) Result~Frame~
         +frame_count
         +detected_streak
+        +error_count
     }
 
     class NoopProcessor {
-        +process(frame) Frame
+        +process(frame) Result~Frame~
+    }
+
+    class ClickGesture {
+        <<enum>>
+        Left
+        Right
     }
 
     class PreviewWindow {
@@ -98,6 +114,7 @@ classDiagram
     HandTrackingProcessor --> Landmark3D
     HandTrackingProcessor --> RoiRect
     HandTrackingProcessor --> Frame
+    HandTrackingProcessor --> ClickGesture
     PreviewWindow --> Frame
     src.app.system ..> ConfigStore
     src.app.system ..> CameraSession

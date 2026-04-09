@@ -36,6 +36,7 @@ graph TD
     pipeline --> windows_sys
 ```
 
-- 循環依存はない。主経路は main → app → (camera/pipeline/ui/preferences)。
+- 現在のクレート内モジュール参照には `pipeline <-> inference` の相互参照がある（`pipeline` が推論セッションを利用し、`inference` は `pipeline::Frame` を入力型として利用）。
+- 主経路は main → app → (camera/pipeline/ui/preferences)。
 - 推論層は pipeline 経由でのみ利用し、UI層から inference へ直接依存しない。
 - OSカーソル制御は pipeline 内に閉じ、`windows-sys` 依存の影響範囲を限定している。

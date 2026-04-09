@@ -9,15 +9,16 @@
 - src.preferences: TOML設定の永続化。`AppConfig` と `PipelineConfig` のデフォルト値と保存先解決を提供。
 - src.camera: 利用可能カメラの列挙とセッション管理。RGBフレーム取得を担当。
 - src.inference: ONNX Runtime セッション管理。フレーム（またはROI）を入力して 21 点ランドマークを推論。
-- src.pipeline: 推論ワーカーと描画・平滑化・ROI追跡・カーソル移動を統合するリアルタイム処理層。
+- src.pipeline: 推論ワーカーと描画・平滑化・ROI追跡・カーソル移動・クリックジェスチャーを統合するリアルタイム処理層。
 - src.ui: カメラ選択UIとプレビューウィンドウ表示（minifb）を提供。
 
 ## 設計原則
 
 - 主従関係: `app::run()` が制御を持ち、1フレーム単位で `camera -> pipeline -> ui` を駆動。
-- 障害耐性: 推論初期化失敗時は `NoopProcessor` にフォールバックしてプレビューを継続。
+- 障害耐性: 推論初期化失敗時は `NoopProcessor` にフォールバックし、実行中の推論ワーカーエラーは状態をリセットして継続。
 - 性能: 推論は専用ワーカーへ分離し、メインループはノンブロッキングで結果を吸収。
 - 拡張性: `FrameProcessor` トレイト境界で処理系を差し替え可能。
+- 入出力契約: `FrameProcessor::process` は `Result<Frame>` を返し、ループ側でエラー伝播を統一。
 
 ## クラス図（概要）
 
@@ -36,9 +37,18 @@ classDiagram
         +f32 landmark_smooth_alpha
         +f32 cursor_smooth_alpha
         +f32 cursor_interp_alpha
+        +f32 click_pinch_press_ratio
+        +f32 click_pinch_release_ratio
+        +u32 click_cooldown_ms
         +usize index_finger_tip
         +f32 inference_hz
         +f32 cursor_update_hz
+        +f32 min_bbox_ratio_track
+        +f32 min_bbox_ratio_scan
+        +f32 max_bbox_ratio
+        +f32 min_segment_ratio
+        +f32 max_segment_ratio
+        +f32 min_palm_area_ratio
     }
 
     class ConfigStore {
@@ -70,15 +80,15 @@ classDiagram
 
     class FrameProcessor {
         <<trait>>
-        +process(frame) Frame
+        +process(frame) Result~Frame~
     }
 
     class HandTrackingProcessor {
         +new(model_path, pipeline_config)
-        +process(frame) Frame
+        +process(frame) Result~Frame~
     }
     class NoopProcessor {
-        +process(frame) Frame
+        +process(frame) Result~Frame~
     }
 
     class PreviewWindow {
